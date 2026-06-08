@@ -7,7 +7,8 @@ class FastEmbedding(BaseEmbedding):
     def __init__(self, name: str = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"):
         super().__init__(name=name)
         self.model = TextEmbedding(model_name=self.name,
-                                   cache_dir = r"D:\fastembed_cache")
+                                   cache_dir = r"D:\fastembed_cache",
+                                   cuda=True)
 
     def encode(self, contents: List[str]) -> List[List[float]]:
         if not contents:
