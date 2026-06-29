@@ -1,4 +1,3 @@
-from llm.LLM import LLM
 import chromadb
 from chromadb.config import Settings
 
@@ -7,27 +6,11 @@ from embeddings.base import EmbeddingConfig
 from rerank.core import Reranker
 
 class RAG:
-    """
-    A query is in this form:
-    {
-    "ids": [["doc_1", "doc_7"]],
-    "embeddings": [[[1, 2, 3, 4], [1, 2, 3, 4]]],
-    "documents": [["Chroma stores vectors.", "Embeddings power semantic search."]],
-    "metadatas": [[
-        {"source": "docs", "topic": "intro"},
-        {"source": "blog", "topic": "search"}
-    ]],
-    "distances": [[0.12, 0.21]],
-    "included": ["embeddings", "documents", "metadatas", "distances"]
-    }
-    """
-    def __init__(self, 
-        llm_api_key:str,
+    def __init__(self,
         chromadb_api_key:str,
         tenant_key:str,
         db_key:str,
-        collectionName:str,
-        llm:str="gemini-2.5-flash",
+        collectionName:str="project1",
         embeddingName:str="BAAI/bge-m3",
         rerankerName:str="BAAI/bge-reranker-v2-m3"
         ):
@@ -40,7 +23,6 @@ class RAG:
             name=collectionName,
             embedding_function=None  
         )
-        self.llm = LLM(api_key=llm_api_key, model_name=llm)
 
         config = EmbeddingConfig(name=embeddingName)
         self.embedding = SentenceTransformerEmbedding(config)
