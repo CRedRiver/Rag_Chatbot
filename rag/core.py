@@ -14,7 +14,7 @@ class RAG:
         embeddingName:str="BAAI/bge-m3",
         rerankerName:str="BAAI/bge-reranker-v2-m3"
         ):
-        self.db_client = chromadb.Client(
+        self.db_client = chromadb.CloudClient(
             api_key = chromadb_api_key,
             tenant=tenant_key,
             database=db_key
