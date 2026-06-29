@@ -146,4 +146,4 @@ if __name__=="__main__":
     api_key = get_env("CHROMA_API_KEY")
     tenant = get_env("CHROMA_TENANT")
     db = get_env("CHROMA_DATABASE")
-    demo.launch()
+    demo.launch(share=True)
