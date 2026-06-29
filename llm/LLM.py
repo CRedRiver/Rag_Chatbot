@@ -1,6 +1,6 @@
 from google import genai
 from typing import List, Dict
-from config import SYS_INSTRUCTION
+from llm.config import SYS_INSTRUCTION
 
 class LLM():
     def __init__(self, api_key:str, model_name:str="gemini-2.5-flash",

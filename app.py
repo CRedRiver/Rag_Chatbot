@@ -1,5 +1,6 @@
 import os
 import gradio as gr
+import time
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -75,33 +76,55 @@ def check_pdf(file):
     return f"Accepted: {file.name}"
 
 def chat_interface(query, history, selected_model):
-    """
-    Handles the complete conversation workflow: routing, 
-    vector retrieval, and LLM text generation.
-    """
     if not query.strip():
-        return history, ""
+        yield history, ""
+        return
     
     current_query["value"] = query
-    
-    # Dynamically apply the selected model layout from the dropdown
     llm.model_name = selected_model
     
-    # Process text through the RAG pipeline
-    route = router.guide(query)
-    if route == "chitchat":
-        bot_response = llm.create_content(query)
-    else:
-        results = rag.vector_search(query)
-        context = "\n\n".join(r["chunk"] for r in results)
-        prompt = RAG_PROMPT.format(context=context, question=query)
-        bot_response = llm.create_content(prompt)
-        
+    #  Immediately append the user's question and show the initial status message
     history = history + [
         {"role": "user", "content": query},
-        {"role": "assistant", "content": bot_response}
+        {"role": "assistant", "content": "Routing query intent..."}
     ]
-    return history, ""
+    # Yield (history, "") to clear the query text box immediately for better UX
+    yield history, ""
+    
+    # Execute semantic routing
+    route = router.guide(query)
+    
+    if route == "chitchat":
+        # Update state to answering phase
+        history[-1]["content"] = "Thinking..."
+        yield history, ""
+        
+        bot_response = llm.create_content(query)
+        history[-1]["content"] = bot_response
+        yield history, ""
+        
+    else:
+        # Update status to Retrieval phase
+        history[-1]["content"] = "Retrieving and reranking contextual document chunks..."
+        yield history, ""
+        
+        results = rag.vector_search(query)
+        
+        # (Optional artificial tiny delay to make the transition visible if retrieval is too instant)
+        time.sleep(0.4) 
+        
+        # Update status to Synthesis phase
+        history[-1]["content"] = "Generating formal response text..."
+        yield history, ""
+        
+        context = "\n\n".join(r["chunk"] for r in results)
+        prompt = RAG_PROMPT.format(context=context, question=query)
+        
+        bot_response = llm.create_content(prompt)
+        
+        # Overwrite the status placeholder with the final answer
+        history[-1]["content"] = bot_response
+        yield history, ""
 
 def get_current_query():
     return current_query["value"] or "No query saved yet."
@@ -119,7 +142,7 @@ with gr.Blocks(title="RAG Assistant") as demo:
             
             # 1. Added model choice dropdown selector inside the left configurations panel
             model_dropdown = gr.Dropdown(
-                choices=["gemini-2.5-flash", "gemini-2.5-pro", "gemini-3.5-flash"],
+                choices=["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite", "gemini-3.5-flash"],
                 value="gemini-2.5-flash",
                 label="Gemini Model Engine",
                 interactive=True
