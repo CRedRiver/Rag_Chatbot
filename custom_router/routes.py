@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import List
-from samples import research_sample, chitchat
+from custom_router.samples import research_sample, chitchat
 
 @dataclass
 class Route:
