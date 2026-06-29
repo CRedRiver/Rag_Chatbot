@@ -11,13 +11,13 @@ class SemanticRouter():
         for route in self.routes:
             self.routesEmbedding[
                 route.name
-            ] = self.embedding.encode(route.samples)
+            ] = self.embedding(route.samples)
 
     def get_routes(self):
         return self.routes
 
     def guide(self, query):
-        queryEmbedding = self.embedding.encode([query]) 
+        queryEmbedding = self.embedding([query]) 
         queryEmbedding = queryEmbedding / np.linalg.norm(queryEmbedding)
         scores = []
 
