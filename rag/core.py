@@ -50,10 +50,17 @@ class RAG:
             n_results=query_res
         )
         
+        # Check if any documents were returned at all to prevent empty list errors
+        if not query_dict["documents"] or not query_dict["documents"][0]:
+            return []
+
         _, ranked_chunks, ranked_indices = self.reranker(user_query, query_dict["documents"][0])
 
+        # Dynamically cap the limit to the actual number of ranked items available
+        actual_limit = min(limit, len(ranked_indices))
+
         results = []
-        for i in range(limit):
+        for i in range(actual_limit):
             orig_idx = ranked_indices[i]
             result = {
                 "id": query_dict["ids"][0][orig_idx],
