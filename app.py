@@ -7,8 +7,8 @@ load_dotenv()
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "0"
 
 from insert_data.build_chromadb import BuildChromaDB
-from semantic_router.router import SemanticRouter
-from semantic_router.routes import research_route, chitchat_route
+from custom_router.router import SemanticRouter
+from custom_router.routes import research_route, chitchat_route
 from llm.LLM import LLM
 from rag.core import RAG
 
