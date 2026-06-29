@@ -46,7 +46,7 @@ router = SemanticRouter(
 )
 llm = LLM(api_key=get_env("GEMINI_API_KEY"),
           model_name="gemini-2.5-flash")
-rag = RAG(chroma_api_key=get_env("CHROMA_API_KEY"),
+rag = RAG(chromadb_api_key=get_env("CHROMA_API_KEY"),
           tenant_key=get_env("CHROMA_TENANT"),
           db_key=get_env("CHROMA_DATABASE")
           )
