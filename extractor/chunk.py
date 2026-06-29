@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 @dataclass
 class Chunk: 
     source:str # title of the research paper
-    chunk_id:int
+    chunk_id:str
     chunk_type:str
     parent:int #id of the parent chunk if no parents then -1
     text:str

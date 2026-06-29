@@ -1,5 +1,6 @@
 import os
 import re
+import uuid
 from typing import List
 import pymupdf4llm
 from extractor.text_splitter import RecursiveCharacterTextSplitter
@@ -32,9 +33,9 @@ class PdfExtractor:
     def pdf_to_md(self, file_path: str) -> str:
         return pymupdf4llm.to_markdown(file_path)
         
-    def _get_next_id(self) -> int:
-        self._current_id += 1
-        return self._current_id
+    def _get_next_id(self) -> str:
+        # Generate a random unique string id for each chunk
+        return uuid.uuid4().hex
 
     def extract_parent_chunk(self, parent_chunk: Chunk) -> List[Chunk]:
         child_chunks = []
@@ -100,15 +101,11 @@ class PdfExtractor:
         """
         self._current_id = 0 
         md_text = self.pdf_to_md(file_path)
-        
-        # Always return a tuple of (parent_chunks, children_chunks)
         if not md_text:
             return [], []
 
-        # Split into lines but KEEP blank lines so \n\n splitting works
         lines = md_text.splitlines()
 
-        # Extract Title 
         paper_title = "Unknown Title"
         skip_words = ["research paper", "article", "review article", "original article"] 
         
@@ -187,7 +184,7 @@ class PdfExtractor:
 
 
 if __name__ == "__main__":
-    path = r"D:\HUST\2025.2\Project1_new\data\EJ1172284.pdf"
+    path = r"D:\HUST\2025.2\Project1_new\data\Kelly_Vickie.pdf"
     try:
         extractor = PdfExtractor()
         text = extractor.pdf_to_md(path)
