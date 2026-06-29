@@ -46,7 +46,7 @@ class RAG:
 
         user_query_emb = self.get_query_emb(user_query)
         query_dict = self.collection.query(
-            query_embeddings=[user_query_emb],
+            query_embeddings=user_query_emb,
             n_results=query_res
         )
         
