@@ -2,12 +2,14 @@ from sentence_transformers import CrossEncoder
 import numpy as np
 
 class Reranker():
-    def __init__(self, model_name: str = "Alibaba-NLP/gte-multilingual-reranker-base"):
+    def __init__(self, model_name: str = "BAAI/bge-reranker-v2-m3"):
         self.reranker = CrossEncoder(model_name, trust_remote_code=True,
                                     max_length=512)
 
-    def __call__(self, query: str, passages: list[str], batch_size = 32) -> tuple[list[float], list[str]]:
+    def __call__(self, query: str, passages: list[str], batch_size = 32):
         # Combine query and passages into pairs
+        if len(passages)==1:
+            passages=passages[0]
         query_passage_pairs = [[query, passage] for passage in passages]
 
         # Get scores from the reranker model
@@ -18,10 +20,6 @@ class Reranker():
         )
 
         # Sort passages based on scores
-        ranked_passages = [passage for _, passage in sorted(zip(scores, passages), key=lambda x: x[0], reverse=True)]
-        ranked_scores = sorted(scores, reverse=True)
-        
-        # Convert scores to standard Python floats
-        ranked_scores = [float(score) for score in ranked_scores]
-        # Return just the passages in ranked order
-        return ranked_scores, ranked_passages
+        ranked = sorted(zip(scores, passages, range(len(passages))), key=lambda x: x[0], reverse=True)
+        ranked_scores, ranked_passages, ranked_indices = map(list, zip(*ranked))
+        return ranked_scores, ranked_passages, ranked_indices

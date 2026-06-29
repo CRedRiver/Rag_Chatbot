@@ -1,51 +1,58 @@
+import os
+from typing import List
 import chromadb
 from chromadb.config import Settings
 from extractor.pdf_extractor import PdfExtractor
-from embeddings.fastEmbed import FastEmbedding
-import os
-from typing import List
+
+# Import your custom SentenceTransformer wrapper
+from embeddings.sentenceTransformer import SentenceTransformerEmbedding
+from embeddings.base import EmbeddingConfig
 
 class BuildChromaDB:
-    def __init__(self, model_cache_dir: str, api_key: str, tenant: str, database: str):
-        self.client = chromadb.CloudClient(
-            api_key=api_key,
-            tenant=tenant,
-            database=database
-        )
-        self.collection = self.client.get_or_create_collection(
-            name="collection_project1",
-            embedding_function=None  
-        )
+    def __init__(self, collection_name:str, model_cache_dir: str, api_key: str, tenant: str, database: str,
+                 model_name="BAAI/bge-m3", chunk_size=1000, chunk_overlap=300):
+        self.client = chromadb.CloudClient(api_key=api_key, tenant=tenant, database=database)
+        self.collection = self.client.get_or_create_collection(name=collection_name, embedding_function=None)
         self.cache_dir = model_cache_dir
-    
-    def build_(self, file_paths: List[str], model_name="jinaai/jina-embeddings-v2-base-en",
-               chunk_size=1000,chunk_overlap=300):
+        self.extractor = PdfExtractor(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+        self.embedding_model = SentenceTransformerEmbedding(EmbeddingConfig(name=model_name))
+
+    def build_(self, file_paths: List[str]):
         if isinstance(file_paths, str):
             file_paths = [file_paths]
-            
-        extractor = PdfExtractor(
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap
-        )
-        
-        embedding_model = FastEmbedding(
-            name=model_name,
-            cache_dir=self.cache_dir
-        )
-        
-        _, chil_chunks = extractor.extract_batch(file_paths)
-        chil_docs = [str(chunk) for chunk in chil_chunks]  
-        chil_embeddings = embedding_model.encode(chil_docs)
-        chil_ids = [f"child_{idx}" for idx in range(len(chil_docs))]
-        chil_metadata = [{"type": "child", "source_file": os.path.basename(file_paths[0])} for _ in chil_docs]
-        
+
+        _, chil_chunks = self.extractor.extract_batch(file_paths)
+        chil_docs = [str(chunk) for chunk in chil_chunks]
+        chil_embeddings_raw = self.embedding_model.encode(chil_docs)
+        chil_embeddings = [emb.tolist() if hasattr(emb, "tolist") else list(emb) for emb in chil_embeddings_raw]
+
+        chil_ids = [str(chunk.chunk_id) for chunk in chil_chunks]
+        chil_metadata = [{"source": chunk.source, "section": chunk.metadata["section_header"]} for chunk in chil_chunks]
+
         if chil_docs:
-            self.collection.add(
-                ids=chil_ids,
-                embeddings=chil_embeddings,
-                documents=chil_docs,
-                metadatas=chil_metadata
-            )
+            self.collection.add(ids=chil_ids, embeddings=chil_embeddings, documents=chil_docs, metadatas=chil_metadata)
             print(f"Successfully upserted {len(chil_docs)} child chunks into ChromaDB.")
-            
+
         return chil_ids
+    
+
+if __name__=="__main__":
+    from dotenv import load_dotenv
+    load_dotenv()
+    api_key = os.getenv("CHROMA_API_KEY")
+    tenant = os.getenv("CHROMA_TENANT")
+    db = os.getenv("CHROMA_DATABASE")
+    client = chromadb.CloudClient(
+            api_key=api_key,
+            tenant=tenant,
+            database=db
+        )
+    collection = client.get_or_create_collection(
+            name="test",
+            embedding_function=None  
+        )
+    collection.add(
+        ids = "1",
+        embeddings=[3,2],
+        documents="hello guys"
+    )
