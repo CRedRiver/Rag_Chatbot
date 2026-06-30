@@ -1,4 +1,6 @@
 import os
+import sys
+import argparse
 import gradio as gr
 import time
 from dotenv import load_dotenv
@@ -12,6 +14,12 @@ from custom_router.router import SemanticRouter
 from custom_router.routes import research_route, chitchat_route
 from llm.LLM import LLM
 from rag.core import RAG
+
+parser = argparse.ArgumentParser(description="Run the RAG Assistant Interface")
+parser.add_argument("-k", "--top_k", type=int, default=5, 
+                    help="Number of top reranked chunks to feed to the LLM context window")
+# Using a default of 5 for LLM injection
+args = parser.parse_args()
 
 ##################### CONFIGURATIONS #####################################
 RAG_PROMPT = """You are an assistant that specialises in reading and analysing research papers, 
@@ -64,18 +72,7 @@ def index_on_upload(file):
     ids = builder.build_(file.name)
     return f"Indexed {len(ids)} chunks into 'project1'."
 
-def check_pdf(file):
-    if file is None:
-        return "No file uploaded."
-    if not file.name.lower().endswith(".pdf"):
-        return f"Rejected: {file.name} is not a PDF."
-    with open(file.name, "rb") as f:
-        header = f.read(5)
-    if header != b"%PDF-":
-        return f"Rejected: .pdf extension but invalid PDF content."
-    return f"Accepted: {file.name}"
-
-def chat_interface(query, history, selected_model):
+def chat_interface(query, history, selected_model, context_limit):
     if not query.strip():
         yield history, ""
         return
@@ -83,19 +80,17 @@ def chat_interface(query, history, selected_model):
     current_query["value"] = query
     llm.model_name = selected_model
     
-    #  Immediately append the user's question and show the initial status message
+    # Immediately append the user's question and show the initial status message
     history = history + [
         {"role": "user", "content": query},
         {"role": "assistant", "content": "Routing query intent..."}
     ]
-    # Yield (history, "") to clear the query text box immediately for better UX
     yield history, ""
     
     # Execute semantic routing
     route = router.guide(query)
     
     if route == "chitchat":
-        # Update state to answering phase
         history[-1]["content"] = "Thinking..."
         yield history, ""
         
@@ -104,16 +99,13 @@ def chat_interface(query, history, selected_model):
         yield history, ""
         
     else:
-        # Update status to Retrieval phase
         history[-1]["content"] = "Retrieving and reranking contextual document chunks..."
         yield history, ""
         
-        results = rag.vector_search(query)
+        results = rag.vector_search(query, limit=int(context_limit))
         
-        # (Optional artificial tiny delay to make the transition visible if retrieval is too instant)
-        time.sleep(0.4) 
+        time.sleep(0.3) 
         
-        # Update status to Synthesis phase
         history[-1]["content"] = "Generating formal response text..."
         yield history, ""
         
@@ -122,7 +114,6 @@ def chat_interface(query, history, selected_model):
         
         bot_response = llm.create_content(prompt)
         
-        # Overwrite the status placeholder with the final answer
         history[-1]["content"] = bot_response
         yield history, ""
 
@@ -140,23 +131,30 @@ with gr.Blocks(title="RAG Assistant") as demo:
             upload_status = gr.Textbox(label="Status", interactive=False)
             file_input.change(index_on_upload, inputs=file_input, outputs=upload_status)
             
-            # 1. Added model choice dropdown selector inside the left configurations panel
             model_dropdown = gr.Dropdown(
                 choices=["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-flash-lite", "gemini-3.5-flash"],
                 value="gemini-2.5-flash",
                 label="Gemini Model Engine",
                 interactive=True
             )
+            
+            k_slider = gr.Slider(
+                minimum=1, 
+                maximum=20, 
+                value=args.top_k, 
+                step=1, 
+                label="LLM Context Chunk Limit (Top-N)",
+                interactive=True
+            )
 
         with gr.Column(scale=2):
             gr.Markdown("### Ask a question")
-            chatbot = gr.Chatbot(height=400, type="messages") # Updated format to handle message dict objects cleanly
+            chatbot = gr.Chatbot(height=400, type="messages") 
             query_box = gr.Textbox(placeholder="Type your question and press Enter", show_label=False)
             
-            # 2. Wired input query and dropdown components to the new processing core
             query_box.submit(
                 chat_interface, 
-                inputs=[query_box, chatbot, model_dropdown], 
+                inputs=[query_box, chatbot, model_dropdown, k_slider], 
                 outputs=[chatbot, query_box]
             )
 
@@ -166,7 +164,4 @@ with gr.Blocks(title="RAG Assistant") as demo:
         debug_btn.click(get_current_query, outputs=debug_output)
 
 if __name__=="__main__":
-    api_key = get_env("CHROMA_API_KEY")
-    tenant = get_env("CHROMA_TENANT")
-    db = get_env("CHROMA_DATABASE")
     demo.launch(share=True)
